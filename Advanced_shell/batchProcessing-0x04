@@ -1,0 +1,48 @@
+cat <<'EOF' > Advanced_shell/batchProcessing-0x04
+POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
+
+# A separate directory to store the results from this parallel script.
+OUTPUT_DIR="pokemon_data_parallel"
+
+# The base URL for the Pokémon API.
+BASE_URL="https://pokeapi.co/api/v2/pokemon"
+
+# --- Script Logic ---
+
+# Create the output directory if it doesn't already exist.
+mkdir -p "$OUTPUT_DIR"
+
+echo "Starting parallel fetch for all Pokémon..."
+
+# Loop through each Pokémon and dispatch a background job to fetch its data.
+for pokemon in "${POKEMON_LIST[@]}"; do
+  # We group the commands for each Pokémon in a subshell (...) and send
+  # the entire subshell to the background with '&'. This keeps the output
+  # from different jobs from mixing up and allows for better error handling per job.
+  (
+    output_file="${OUTPUT_DIR}/${pokemon}.json"
+    echo "Dispatching fetch for ${pokemon}..."
+    
+    # Make the API call using curl.
+    if curl -sf -o "$output_file" "${BASE_URL}/${pokemon}"; then
+      # On success, print a confirmation.
+      echo "Success: Data for ${pokemon} saved. ✅"
+    else
+      # On failure, print an error and clean up the empty file.
+      echo "Error: Failed to fetch data for ${pokemon}. ❌"
+      rm -f "$output_file"
+    fi
+  ) &
+done
+
+# --- Process Management ---
+# The 'wait' command is crucial. It pauses the script and waits for all
+# child processes (the background jobs we just started) to complete.
+# Without 'wait', the script would exit immediately while the downloads
+# might still be running in the background.
+echo "All fetch jobs have been dispatched. Now waiting for them to complete..."
+wait
+echo "-----------------------------------------------------"
+echo "All parallel data fetching tasks are complete."
+echo "Check the '${OUTPUT_DIR}' directory for results."
+
