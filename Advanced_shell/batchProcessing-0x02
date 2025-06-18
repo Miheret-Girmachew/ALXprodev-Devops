@@ -1,38 +1,58 @@
-POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
-
-# The directory where JSON files will be saved.
+POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon" "nonexistentpokemon") # Added a bad name for testing
 OUTPUT_DIR="pokemon_data"
-
-# The base URL for the Pokémon API.
 BASE_URL="https://pokeapi.co/api/v2/pokemon"
+LOG_FILE="error.log"
+MAX_RETRIES=3
+RETRY_DELAY=2 # seconds
 
 # --- Script Logic ---
 
 # Create the output directory if it doesn't already exist.
 mkdir -p "$OUTPUT_DIR"
 
+# Clear previous error log at the start of the script run
+> "$LOG_FILE"
+
 # Loop through each Pokémon in the POKEMON_LIST array.
 for pokemon in "${POKEMON_LIST[@]}"; do
-  # Define the full path for the output file.
   output_file="${OUTPUT_DIR}/${pokemon}.json"
-  
-  echo "Fetching data for ${pokemon}..."
-  
-  # Make the API call using curl.
-  # -f: Fail silently on server errors (returns non-zero exit code).
-  # -s: Silent mode (no progress meter).
-  # -o: Specify the output file.
-  if curl -sf -o "$output_file" "${BASE_URL}/${pokemon}"; then
-    # This block executes if curl returns a success (0) exit code.
-    echo "Saved data to ${output_file} ✅"
-  else
-    # This block executes if curl fails.
-    echo "Error: Failed to fetch data for ${pokemon}. ❌"
-    # Clean up the potentially empty file created by the failed curl.
+  request_successful=false # Flag to track the status of the request for the current Pokémon
+
+  # --- Retry Loop ---
+  # Attempt the request up to MAX_RETRIES times.
+  for (( attempt=1; attempt<=MAX_RETRIES; attempt++ )); do
+    echo "Fetching data for ${pokemon}... (Attempt ${attempt}/${MAX_RETRIES})"
+    
+    # Make the API call using curl.
+    # -f: Fail silently on server errors (returns non-zero exit code 22).
+    # -s: Silent mode (no progress meter).
+    # -o: Specify the output file.
+    if curl -sf -o "$output_file" "${BASE_URL}/${pokemon}"; then
+      # If curl succeeds (exit code 0), print success, set flag, and break the retry loop.
+      echo "Saved data to ${output_file} ✅"
+      request_successful=true
+      break
+    else
+      # If curl fails, print a message.
+      echo "Attempt ${attempt} failed. Retrying in ${RETRY_DELAY} seconds..."
+      # If it's not the last attempt, wait before retrying.
+      if [ "$attempt" -lt "$MAX_RETRIES" ]; then
+        sleep "$RETRY_DELAY"
+      fi
+    fi
+  done
+
+  # --- Post-Retry Check ---
+  # After the loop, check if the request was ever successful.
+  if [ "$request_successful" = false ]; then
+    echo "Error: All attempts to fetch data for ${pokemon} failed. Skipping. ❌"
+    # Log the persistent failure to the log file.
+    echo "$(date): FAILED to retrieve data for '${pokemon}' after ${MAX_RETRIES} attempts." >> "$LOG_FILE"
+    # Clean up the potentially empty/corrupt file created by the failed curl.
     rm -f "$output_file"
   fi
-  
-  # Add a 1-second delay to avoid overwhelming the API (rate-limiting).
+
+  # Add a small delay before processing the next Pokémon to be nice to the API.
   sleep 1
 done
 
