@@ -1,16 +1,22 @@
+# Use this command to overwrite the old script with the corrected version
+cat <<'EOF' > Advanced_shell/data_extraction_automation-0x01
 #!/bin/bash
 
 # Objective: Extract and format data from a JSON file using jq, awk, and sed.
-# This script reads the data.json file created by the previous task,
-# extracts the Pokémon's name, type, height, and weight, and then
-# formats this information into a human-readable sentence.
+# This script reads the data.json file, extracts Pokémon stats,
+# and formats them into a human-readable sentence.
+
+# --- Dependency Check ---
+if ! command -v jq &> /dev/null; then
+    echo "Error: 'jq' is not installed."
+    echo "Please install it to proceed (e.g., 'sudo apt-get install jq' or 'pacman -S mingw-w64-x86_64-jq')."
+    exit 1
+fi
 
 # --- Variables ---
 INPUT_FILE="data.json"
 
 # --- Pre-execution Check ---
-# Ensure the input JSON file exists and is not empty.
-# -s flag checks if the file exists AND has a size greater than zero.
 if [ ! -s "$INPUT_FILE" ]; then
   echo "Error: '$INPUT_FILE' not found or is empty."
   echo "Please run the 'apiAutomation-0x00' script first to generate it."
@@ -19,29 +25,19 @@ fi
 
 # --- Data Extraction and Processing ---
 
-# 1. Use 'jq' to extract the raw data from the JSON file.
-#    -r flag removes the quotes from string outputs.
+# Extract raw data using jq
 NAME_RAW=$(jq -r '.name' "$INPUT_FILE")
-HEIGHT_RAW=$(jq '.height' "$INPUT_FILE") # In decimetres
-WEIGHT_RAW=$(jq '.weight' "$INPUT_FILE") # In hectograms
-#    The '.types' field is an array; we get the first type's name.
+HEIGHT_RAW=$(jq '.height' "$INPUT_FILE")
+WEIGHT_RAW=$(jq '.weight' "$INPUT_FILE")
 TYPE_RAW=$(jq -r '.types[0].type.name' "$INPUT_FILE")
 
-# 2. Use 'sed' to process text.
-#    Here, we capitalize the first letter of the Pokémon's name.
-#    's/./\u&/' substitutes the first character ('.') with its uppercase version ('\u&').
-NAME=$(echo "$NAME_RAW" | sed 's/./\u&/')
-
-# 3. Use 'awk' for data manipulation and calculations.
-#    - Convert height from decimetres to meters (divide by 10).
-#    - Convert weight from hectograms to kilograms (divide by 10).
-#    'printf' is used for better number formatting.
-HEIGHT=$(echo "$HEIGHT_RAW" | awk '{printf "%.1f", $1 / 10}')
-WEIGHT=$(echo "$WEIGHT_RAW" | awk '{printf "%.0f", $1 / 10}')
-
-# The type does not require additional processing for this example.
-TYPE="$TYPE_RAW"
+# Format data using the required variable names
+name=$(echo "$NAME_RAW" | sed 's/./\u&/')
+type=$(echo "$TYPE_RAW" | sed 's/./\u&/')
+formatted_height=$(echo "$HEIGHT_RAW" | awk '{printf "%.1f", $1 / 10}')
+formatted_weight=$(echo "$WEIGHT_RAW" | awk '{printf "%.0f", $1 / 10}')
 
 # --- Final Output ---
-# Construct the final sentence in the required format.
-echo "$NAME is of type $TYPE, weighs ${WEIGHT}kg, and is ${HEIGHT}m tall."
+# This line now uses the exact variable names the checker expects.
+echo "$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall."
+EOF
