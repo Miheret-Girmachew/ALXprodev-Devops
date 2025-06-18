@@ -1,0 +1,44 @@
+POKEMON_LIST=("Bulbasaur" "Ivysaur" "Venusaur" "Charmander" "Charmeleon")
+
+# The directory where JSON files will be saved.
+OUTPUT_DIR="pokemon_data"
+
+# The base URL for the Pokémon API.
+BASE_URL="https://pokeapi.co/api/v2/pokemon"
+
+# --- Script Logic ---
+
+# Create the output directory if it doesn't already exist.
+# The '-p' flag prevents errors if the directory is already there.
+mkdir -p "$OUTPUT_DIR"
+
+# Loop through each Pokémon in the POKEMON_LIST array.
+for pokemon in "${POKEMON_LIST[@]}"; do
+  # The API requires lowercase names.
+  # Use bash parameter expansion to convert the name to lowercase.
+  pokemon_lower="${pokemon,,}"
+  
+  # Define the full path for the output file.
+  output_file="${OUTPUT_DIR}/${pokemon_lower}.json"
+  
+  echo "Fetching data for ${pokemon_lower}..."
+  
+  # Make the API call using curl.
+  # -f: Fail silently on server errors (returns non-zero exit code).
+  # -s: Silent mode (no progress meter).
+  # -o: Specify the output file.
+  if curl -sf -o "$output_file" "${BASE_URL}/${pokemon_lower}"; then
+    # This block executes if curl returns a success (0) exit code.
+    echo "Saved data to ${output_file} ✅"
+  else
+    # This block executes if curl fails.
+    echo "Error: Failed to fetch data for ${pokemon_lower}. ❌"
+    # Clean up the potentially empty file created by the failed curl.
+    rm -f "$output_file"
+  fi
+  
+  # Add a 1-second delay to avoid overwhelming the API (rate-limiting).
+  sleep 1
+done
+
+echo "Batch processing complete."
